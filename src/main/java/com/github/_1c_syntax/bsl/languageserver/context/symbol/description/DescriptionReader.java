@@ -84,50 +84,52 @@ public class DescriptionReader {
    * @return Список описаний возвращаемых значений
    */
   public static List<TypeDescription> readReturnedValue(BSLMethodDescriptionParser.MethodDescriptionContext ctx) {
-
-    // возвращаемого значения нет
     if (ctx.returnsValues() == null) {
       return Collections.emptyList();
     }
 
-    // есть только гиперссылка вместо значения
     if (ctx.returnsValues().hyperlinkBlock() != null) {
-      List<TypeDescription> result = new ArrayList<>();
-      if (ctx.returnsValues().hyperlinkBlock().hyperlinkType() != null) {
-        result.add(new TypeDescription(
-          "",
-          "",
-          Collections.emptyList(),
-          getDescriptionString(ctx.returnsValues().hyperlinkBlock()).substring(HYPERLINK_REF_LEN),
-          true
-        ));
-      }
-      return result;
+      return extractHyperlinkBlockDescription(ctx.returnsValues().hyperlinkBlock());
     }
 
-    // блок возвращаемого значения есть, но самих нет
     if (ctx.returnsValues().returnsValuesString() == null) {
       return Collections.emptyList();
     }
 
-    var fakeParam = new TempParameterData("");
-    for (BSLMethodDescriptionParser.ReturnsValuesStringContext string : ctx.returnsValues().returnsValuesString()) {
-      // это строка с возвращаемым значением
+    return extractReturnedValueDescriptions(ctx.returnsValues().returnsValuesString());
+  }
+
+  private static List<TypeDescription> extractHyperlinkBlockDescription(BSLMethodDescriptionParser.HyperlinkBlockContext hyperlinkBlock) {
+    List<TypeDescription> result = new ArrayList<>();
+    if (hyperlinkBlock.hyperlinkType() != null) {
+      result.add(new TypeDescription(
+        "",
+        "",
+        Collections.emptyList(),
+        getDescriptionString(hyperlinkBlock).substring(HYPERLINK_REF_LEN),
+        true
+      ));
+    }
+    return result;
+  }
+
+  private static List<TypeDescription> extractReturnedValueDescriptions(List<? extends BSLMethodDescriptionParser.ReturnsValuesStringContext> strings) {
+    TempParameterData fakeParam = new TempParameterData("");
+    for (BSLMethodDescriptionParser.ReturnsValuesStringContext string : strings) {
       if (string.returnsValue() != null) {
         fakeParam.addType(string.returnsValue().type(), string.returnsValue().typeDescription());
-      } else if (string.typesBlock() != null) { // это строка с описанием параметра
+      } else if (string.typesBlock() != null) {
         fakeParam.addType(string.typesBlock().type(), string.typesBlock().typeDescription());
-      } else if (string.typeDescription() != null) { // это строка с описанием
+      } else if (string.typeDescription() != null) {
         fakeParam.addTypeDescription(string.typeDescription());
-      } else if (string.subParameter() != null) { // это строка с вложенным параметром типа
+      } else if (string.subParameter() != null) {
         fakeParam.addSubParameter(string.subParameter());
-      } else { // прочее - пустая строка
-        // noop
       }
     }
 
     return fakeParam.makeParameterDescription().getTypes();
   }
+
 
   /**
    * Выполняет разбор прочитанного AST дерева описания метода и возвращает описание устаревшего метода

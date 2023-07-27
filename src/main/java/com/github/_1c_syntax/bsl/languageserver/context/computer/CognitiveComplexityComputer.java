@@ -68,7 +68,7 @@ public class CognitiveComplexityComputer
 
   private int fileComplexity;
   private int fileCodeBlockComplexity;
-  private List<ComplexitySecondaryLocation> fileBlockComplexitySecondaryLocations;
+  private List<ComplexitySecondaryLocation> secondaryLocations;
 
   private Map<MethodSymbol, Integer> methodsComplexity;
   private Map<MethodSymbol, List<ComplexitySecondaryLocation>> methodsComplexitySecondaryLocations;
@@ -82,7 +82,7 @@ public class CognitiveComplexityComputer
   public void init() {
     fileComplexity = 0;
     fileCodeBlockComplexity = 0;
-    fileBlockComplexitySecondaryLocations = new ArrayList<>();
+    secondaryLocations = new ArrayList<>();
     resetMethodComplexityCounters();
     methodsComplexity = new HashMap<>();
     methodsComplexitySecondaryLocations = new HashMap<>();
@@ -103,7 +103,7 @@ public class CognitiveComplexityComputer
     return new ComplexityData(
       fileComplexity,
       fileCodeBlockComplexity,
-      fileBlockComplexitySecondaryLocations,
+      secondaryLocations,
       methodsComplexity,
       methodsComplexitySecondaryLocations
     );
@@ -405,7 +405,7 @@ public class CognitiveComplexityComputer
         (MethodSymbol methodSymbol) -> new ArrayList<>()
       );
     } else {
-      locations = fileBlockComplexitySecondaryLocations;
+      locations = secondaryLocations;
     }
 
     locations.add(secondaryLocation);

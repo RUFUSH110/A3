@@ -36,6 +36,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import com.github._1c_syntax.bsl.languageserver.reporters.data.FileInfo;
+import com.github._1c_syntax.bsl.types.MdoReference;
+import com.github._1c_syntax.mdclasses.mdo.AbstractMDObjectBase;
+import org.eclipse.lsp4j.Diagnostic;
+
 
 import java.io.File;
 import java.net.URI;
@@ -341,5 +346,26 @@ public class ServerContext {
      */
     WITH_CONTENT
   }
+
+  public FileInfo processFile(Path srcDir, File file) {
+    var documentContext = this.addDocument(file.toURI());
+    this.rebuildDocument(documentContext);
+
+    var filePath = srcDir.relativize(Absolute.path(file));
+    List<Diagnostic> diagnostics = documentContext.getDiagnostics();
+    MetricStorage metrics = documentContext.getMetrics();
+    var mdoRef = documentContext.getMdObject()
+      .map(AbstractMDObjectBase::getMdoReference)
+      .map(MdoReference::getMdoRef)
+      .orElse("");
+
+    var fileInfo = new FileInfo(filePath, mdoRef, diagnostics, metrics);
+
+    // clean up AST after diagnostic computing to free up RAM.
+    this.tryClearDocument(documentContext);
+
+    return fileInfo;
+  }
+
 
 }

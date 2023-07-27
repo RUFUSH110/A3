@@ -73,6 +73,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -268,6 +269,7 @@ public class BSLLanguageServer implements LanguageServer, ProtocolExtension {
     callHierarchyRegistrationOptions.setWorkDoneProgress(Boolean.FALSE);
     return callHierarchyRegistrationOptions;
   }
+
 
   private static WorkspaceSymbolOptions getWorkspaceProvider() {
     var workspaceSymbolOptions = new WorkspaceSymbolOptions();

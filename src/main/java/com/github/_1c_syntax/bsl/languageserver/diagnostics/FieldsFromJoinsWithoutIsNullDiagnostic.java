@@ -167,19 +167,56 @@ public class FieldsFromJoinsWithoutIsNullDiagnostic extends AbstractSDBLVisitorD
     return rootCtx.getChildCount() == NOT_WITH_PARENS_EXPR_MEMBERS_COUNT && isTerminalNodeNOT(rootCtx.getChild(0));
   }
 
-  private void checkSelect(String tableName, SDBLParser.SelectedFieldsContext columns) {
-    checkStatements(tableName, columns, SELECT_STATEMENTS, EXCLUDED_TOP_RULE_FOR_SELECT, true);
+  // new parameter class
+  private static class CheckStatementParameters {
+    String tableName;
+    BSLParserRuleContext expression;
+    Collection<Integer> statements;
+    Integer rootForStatement;
+    boolean checkIsNullOperator;
+
+    CheckStatementParameters(String tableName, BSLParserRuleContext expression, Collection<Integer> statements,
+                             Integer rootForStatement, boolean checkIsNullOperator) {
+      this.tableName = tableName;
+      this.expression = expression;
+      this.statements = statements;
+      this.rootForStatement = rootForStatement;
+      this.checkIsNullOperator = checkIsNullOperator;
+    }
   }
 
-  private void checkStatements(String tableName, BSLParserRuleContext expression, Collection<Integer> statements,
-                               Integer rootForStatement, boolean checkIsNullOperator) {
-
-    Trees.findAllRuleNodes(expression, SDBLParser.RULE_column).stream()
+  // updated checkStatements method
+  private void checkStatements(CheckStatementParameters params) {
+    Trees.findAllRuleNodes(params.expression, SDBLParser.RULE_column).stream()
       .filter(Objects::nonNull)
       .filter(SDBLParser.ColumnContext.class::isInstance)
       .map(SDBLParser.ColumnContext.class::cast)
-      .filter(columnContext -> checkColumn(tableName, columnContext, statements, rootForStatement, checkIsNullOperator))
+      .filter(columnContext -> checkColumn(params.tableName, columnContext, params.statements,
+        params.rootForStatement, params.checkIsNullOperator))
       .collect(Collectors.toCollection(() -> nodesForIssues));
+  }
+
+  // the other methods are updated to create and pass the new parameter object
+  private void checkSelect(String tableName, SDBLParser.SelectedFieldsContext columns) {
+    checkStatements(new CheckStatementParameters(tableName, columns, SELECT_STATEMENTS,
+      EXCLUDED_TOP_RULE_FOR_SELECT, true));
+  }
+
+  private void checkWhere(String tableName, @Nullable SDBLParser.LogicalExpressionContext where) {
+    Optional.ofNullable(where)
+      .stream().flatMap(searchConditionsContext -> searchConditionsContext.condidions.stream())
+      .forEach(searchConditionContext -> checkStatements(new CheckStatementParameters(tableName, searchConditionContext,
+        WHERE_STATEMENTS, EXCLUDED_TOP_RULE_FOR_WHERE, true)));
+  }
+
+  private void checkAllJoins(String tableName, SDBLParser.JoinPartContext currentJoinPart) {
+    Optional.ofNullable(Trees.getRootParent(currentJoinPart, SDBLParser.RULE_dataSource))
+      .filter(SDBLParser.DataSourceContext.class::isInstance)
+      .stream().flatMap(ctx -> ((SDBLParser.DataSourceContext) ctx).joinPart().stream())
+      .filter(joinPartContext -> joinPartContext != currentJoinPart)
+      .map(SDBLParser.JoinPartContext::logicalExpression)
+      .forEach(searchConditionsContext -> checkStatements(new CheckStatementParameters(tableName, searchConditionsContext,
+        JOIN_STATEMENTS, EXCLUDED_TOP_RULE_FOR_JOIN, false)));
   }
 
   private static boolean checkColumn(String tableName, SDBLParser.ColumnContext columnCtx,
@@ -222,22 +259,7 @@ public class FieldsFromJoinsWithoutIsNullDiagnostic extends AbstractSDBLVisitorD
       .isPresent();
   }
 
-  private void checkWhere(String tableName, @Nullable SDBLParser.LogicalExpressionContext where) {
-    Optional.ofNullable(where)
-      .stream().flatMap(searchConditionsContext -> searchConditionsContext.condidions.stream())
-      .forEach(searchConditionContext -> checkStatements(tableName, searchConditionContext,
-        WHERE_STATEMENTS, EXCLUDED_TOP_RULE_FOR_WHERE, true));
-  }
 
-  private void checkAllJoins(String tableName, SDBLParser.JoinPartContext currentJoinPart) {
-    Optional.ofNullable(Trees.getRootParent(currentJoinPart, SDBLParser.RULE_dataSource))
-      .filter(SDBLParser.DataSourceContext.class::isInstance)
-      .stream().flatMap(ctx -> ((SDBLParser.DataSourceContext) ctx).joinPart().stream())
-      .filter(joinPartContext -> joinPartContext != currentJoinPart)
-      .map(SDBLParser.JoinPartContext::logicalExpression)
-      .forEach(searchConditionsContext -> checkStatements(tableName, searchConditionsContext,
-        JOIN_STATEMENTS, EXCLUDED_TOP_RULE_FOR_JOIN, false));
-  }
 
   private List<DiagnosticRelatedInformation> getRelatedInformation(SDBLParser.JoinPartContext self) {
     return nodesForIssues.stream()

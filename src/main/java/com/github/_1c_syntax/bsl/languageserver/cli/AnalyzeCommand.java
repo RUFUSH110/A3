@@ -201,22 +201,7 @@ public class AnalyzeCommand implements Callable<Integer> {
 
   @SneakyThrows
   private FileInfo getFileInfoFromFile(Path srcDir, File file) {
-    var documentContext = context.addDocument(file.toURI());
-    context.rebuildDocument(documentContext);
-
-    var filePath = srcDir.relativize(Absolute.path(file));
-    List<Diagnostic> diagnostics = documentContext.getDiagnostics();
-    MetricStorage metrics = documentContext.getMetrics();
-    var mdoRef = documentContext.getMdObject()
-      .map(AbstractMDObjectBase::getMdoReference)
-      .map(MdoReference::getMdoRef)
-      .orElse("");
-
-    var fileInfo = new FileInfo(filePath, mdoRef, diagnostics, metrics);
-
-    // clean up AST after diagnostic computing to free up RAM.
-    context.tryClearDocument(documentContext);
-
-    return fileInfo;
+    return context.processFile(srcDir, file);
   }
+
 }
